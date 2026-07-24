@@ -46,6 +46,22 @@ import { RUN_COLORS } from "./useMultiRunData";
 const CONFUSION_MATRIX_MIN_ANNOTATED_ROWS = 5;
 
 /**
+ * Metric id for one confusion-matrix card.
+ *
+ * Must carry BOTH ids. A run has several targets and the same pass/fail
+ * evaluator scores all of them, so keying on the evaluator alone gave every
+ * target's card the same id: duplicate React keys, identical rows in the
+ * metrics menu, and toggling one card silently toggled all of them.
+ */
+const confusionMetricId = ({
+  targetId,
+  evaluatorId,
+}: {
+  targetId: string;
+  evaluatorId: string;
+}) => `confusion_${targetId}__${evaluatorId}` as MetricType;
+
+/**
  * Stable empty-array fallback for `confusionMatrixRows` — a `?? []` literal
  * would hand out a fresh reference on every render with no rows, breaking
  * every downstream useMemo's referential stability and cascading into
@@ -823,9 +839,22 @@ export const ComparisonCharts = ({
   // judge has no single "predicted class" to build a 2x2 from).
   const passFailTargets = useMemo(() => {
     if (!showConfusionMatrix) return [];
+    // The same evaluator runs against every target, so a card is only
+    // identifiable by BOTH ids — hence the target name travels with the
+    // pairing, to label the otherwise identical cards apart.
+    const targetNameById = new Map(
+      (comparisonData[0]?.data?.targetColumns ?? []).map((column) => [
+        column.id,
+        column.name,
+      ]),
+    );
     const seen = new Set<string>();
-    const out: { targetId: string; evaluatorId: string; evaluatorName: string }[] =
-      [];
+    const out: {
+      targetId: string;
+      targetName: string;
+      evaluatorId: string;
+      evaluatorName: string;
+    }[] = [];
     for (const row of confusionMatrixRows) {
       for (const [targetId, target] of Object.entries(row.targets)) {
         for (const evalResult of target.evaluatorResults) {
@@ -838,6 +867,7 @@ export const ComparisonCharts = ({
           seen.add(key);
           out.push({
             targetId,
+            targetName: targetNameById.get(targetId) ?? targetId,
             evaluatorId: evalResult.evaluatorId,
             evaluatorName: evalResult.evaluatorName,
           });
@@ -845,7 +875,13 @@ export const ComparisonCharts = ({
       }
     }
     return out;
-  }, [confusionMatrixRows, comparisonEvaluatorIds, showConfusionMatrix]);
+  }, [
+    confusionMatrixRows,
+    comparisonEvaluatorIds,
+    showConfusionMatrix,
+    comparisonData,
+  ]);
+
 
   const confusionMatrixTraceIds = useMemo(() => {
     if (passFailTargets.length === 0) return [];
@@ -944,8 +980,10 @@ export const ComparisonCharts = ({
     // additive power-user surface, not a replacement.
     for (const candidate of confusionMatrixData) {
       metrics.push({
-        id: `confusion_${candidate.evaluatorId}` as MetricType,
-        name: `${candidate.evaluatorName} (Agreement with Reviewers)`,
+        id: confusionMetricId(candidate),
+        // Names the target too, since the same evaluator produces one card
+        // per target and the rows would otherwise be indistinguishable.
+        name: `${candidate.evaluatorName} vs reviewers — ${candidate.targetName}`,
         type: "confusion",
         evaluatorId: candidate.evaluatorId,
       });
@@ -954,12 +992,33 @@ export const ComparisonCharts = ({
     return metrics;
   }, [scoreEvaluators, passRateEvaluators, comparisonColumns, confusionMatrixData]);
 
-  // Initialize visible metrics to include all available metrics on first load
+  // Show every metric the run offers, including ones that appear later.
+  //
+  // Two problems with keying this off `internalVisibleMetrics.size <= 2`, the
+  // previous guard. It never re-fired once three metrics were visible, so a
+  // metric that becomes available afterwards — annotations finish loading, an
+  // evaluator finishes running — stayed switched off, and a feature nobody
+  // knows to look for is a feature nobody finds. And because the initial set
+  // is exactly {cost, latency}, a run offering only those two kept the guard
+  // true forever: each pass set a NEW Set, re-rendering, and if
+  // `availableMetrics` churned identity it could re-fire without end.
+  //
+  // Track which ids have been offered instead. Newly-offered ones switch on;
+  // ids the user has since unchecked are never resurrected, because they are
+  // already in `seen`.
+  const seenMetricIdsRef = useRef<Set<MetricType>>(new Set());
   useEffect(() => {
-    if (availableMetrics.length > 0 && internalVisibleMetrics.size <= 2) {
-      const allMetricIds = new Set(availableMetrics.map((m) => m.id));
-      setInternalVisibleMetrics(allMetricIds);
-    }
+    const unseen = availableMetrics
+      .map((m) => m.id)
+      .filter((id) => !seenMetricIdsRef.current.has(id));
+    if (unseen.length === 0) return;
+
+    for (const id of unseen) seenMetricIdsRef.current.add(id);
+    setInternalVisibleMetrics((current) => {
+      const next = new Set(current);
+      for (const id of unseen) next.add(id);
+      return next;
+    });
   }, [availableMetrics]);
 
   // Get available X-axis options from target properties and metadata
@@ -1595,15 +1654,13 @@ export const ComparisonCharts = ({
                 same flex row as its siblings, gated on `visibleMetrics`. */}
             {confusionMatrixData.map(
               (candidate) =>
-                visibleMetrics.has(
-                  `confusion_${candidate.evaluatorId}` as MetricType,
-                ) && (
+                visibleMetrics.has(confusionMetricId(candidate)) && (
                   <ConfusionMatrixChart
-                    key={`confusion-${candidate.targetId}-${candidate.evaluatorId}`}
+                    key={confusionMetricId(candidate)}
                     evaluatorId={candidate.evaluatorId}
                     evaluatorName={candidate.evaluatorName}
+                    targetName={candidate.targetName}
                     targetId={candidate.targetId}
-                    pairs={candidate.coverage.pairs}
                     coverage={candidate.coverage}
                     rows={confusionMatrixRows}
                     chartHeight={chartHeight}

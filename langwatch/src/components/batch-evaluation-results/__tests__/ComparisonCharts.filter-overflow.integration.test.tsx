@@ -13,10 +13,25 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ComparisonCharts } from "../ComparisonCharts";
 import type { ComparisonRunData } from "../types";
+
+// ComparisonCharts reads annotations through tRPC's `useQueries`, which
+// touches the tRPC context unconditionally — an `enabled: false` guard does
+// not spare it, so rendering under a bare ChakraProvider would throw
+// "Cannot destructure property 'ssrState'".
+//
+// The single shared constant is load-bearing, not tidiness: returning a fresh
+// array here would hand the component a new reference every render, and that
+// cascades through the memo chain into a setState effect and spins forever.
+const STABLE_EMPTY_QUERY_RESULTS: never[] = [];
+vi.mock("~/utils/api", () => ({
+  api: {
+    useQueries: vi.fn(() => STABLE_EMPTY_QUERY_RESULTS),
+  },
+}));
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
   <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>
