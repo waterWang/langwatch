@@ -615,13 +615,14 @@ export const observeEsSubscriberDuration = ({
 /**
  * Outcome of a subscriber's enqueue-time fan-out decision (payload-cost
  * doctrine invariant 4 — ADR-069): `filtered` (predicate declined, no job
- * minted) or `staged` (a job was minted for the event).
+ * minted), `staged` (a job carries the full event), or `referenced` (a job
+ * carries a claim-check reference instead of the payload).
  */
-type SubscriberEnqueueOutcome = "filtered" | "staged";
+type SubscriberEnqueueOutcome = "filtered" | "staged" | "referenced";
 register.removeSingleMetric("es_subscriber_enqueue_total");
 const esSubscriberEnqueueTotal = new Counter({
   name: "es_subscriber_enqueue_total",
-  help: "Event-sourcing subscriber fan-out outcomes decided at enqueue time (ADR-069): filtered before staging, or staged as a job",
+  help: "Event-sourcing subscriber fan-out outcomes decided at enqueue time (ADR-069): filtered before staging, staged as a full event, or staged as a claim-check reference",
   labelNames: ["pipeline_name", "subscriber_name", "outcome"] as const,
 });
 
