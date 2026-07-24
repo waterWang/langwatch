@@ -38,6 +38,14 @@ vi.mock("~/utils/api", () => ({
         useQuery: vi.fn(),
       },
     },
+    featureFlag: {
+      isEnabled: {
+        useQuery: vi.fn().mockReturnValue({
+          data: { enabled: false },
+          isLoading: false,
+        }),
+      },
+    },
   },
 }));
 
