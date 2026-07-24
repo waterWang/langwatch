@@ -472,6 +472,8 @@ export class PipelineRegistry {
       codingAgentSubscribers: [
         createCodingAgentSpanFactsDispatchSubscriber({
           contributeSpanFacts: codingAgentCommands.contributeSpanFacts,
+          getNormalizedSpanById: (params) =>
+            this.deps.traces.spans.getNormalizedSpanById(params),
         }),
       ],
     });
