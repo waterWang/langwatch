@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createEnv } from "@t3-oss/env-core";
 
-import { assertGatewaySecretsAllOrNone, createEnvConfig, gatewaySecretsSchema, rumSampleRatioSchema, storedObjectsBackendSchema } from "../env-create.mjs";
+import { assertGatewaySecretsAllOrNone, azureBlobAuthModeSchema, createEnvConfig, gatewaySecretsSchema, rumSampleRatioSchema, storedObjectsBackendSchema } from "../env-create.mjs";
 
 // Regression for iter-110: gateway secrets set partially (e.g. only
 // LW_VIRTUAL_KEY_PEPPER, missing the two HMAC/JWT secrets) let the server
@@ -287,6 +287,84 @@ describe("storedObjectsBackendSchema", () => {
         expect(logged).toMatch(/STORED_OBJECTS_BACKEND/);
         expect(logged).toMatch(/s3/);
         expect(logged).toMatch(/azure/);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+  });
+});
+
+// Binds the spec scenario "An unrecognized AZURE_BLOB_AUTH_MODE value is
+// rejected, not ignored" (issue #6087) to the real exported schema — not an
+// inline copy — so a mutation of the enum widening it back to a free string
+// fails here, mirroring the storedObjectsBackendSchema coverage above.
+describe("azureBlobAuthModeSchema", () => {
+  describe("given the env-create source", () => {
+    it("declares AZURE_BLOB_AUTH_MODE in both the schema and the runtime map", () => {
+      const source = fs.readFileSync(
+        path.join(__dirname, "..", "env-create.mjs"),
+        "utf-8",
+      );
+      const schemaHits = source.match(/AZURE_BLOB_AUTH_MODE/g) ?? [];
+      expect(schemaHits.length).toBeGreaterThanOrEqual(2);
+      expect(source).toMatch(
+        /AZURE_BLOB_AUTH_MODE:\s*process\.env\.AZURE_BLOB_AUTH_MODE/,
+      );
+    });
+  });
+
+  describe("given a supported value", () => {
+    it.each([
+      ["sharedKey"],
+      ["workloadIdentity"],
+      ["managedIdentity"],
+      ["azureCli"],
+    ])("accepts %s", (value) => {
+      const parsed = azureBlobAuthModeSchema.safeParse(value);
+      expect(parsed.success).toBe(true);
+      expect(parsed.success && parsed.data).toBe(value);
+    });
+  });
+
+  describe("given no value", () => {
+    it("is optional — undefined is valid, not defaulted to a specific mode", () => {
+      const parsed = azureBlobAuthModeSchema.safeParse(undefined);
+      expect(parsed.success).toBe(true);
+      expect(parsed.success && parsed.data).toBeUndefined();
+    });
+  });
+
+  describe("given a value outside the supported set", () => {
+    /** @scenario "An unrecognized AZURE_BLOB_AUTH_MODE value is rejected, not ignored" */
+    it("fails validation rather than passing the value through untouched", () => {
+      const parsed = azureBlobAuthModeSchema.safeParse("apiKey");
+      expect(parsed.success).toBe(false);
+    });
+
+    /** @scenario "An unrecognized AZURE_BLOB_AUTH_MODE value is rejected, not ignored" */
+    it("startup fails via createEnv, naming the variable and the supported values", () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      try {
+        expect(() =>
+          createEnv({
+            clientPrefix: "VITE_PUBLIC_",
+            client: {},
+            server: { AZURE_BLOB_AUTH_MODE: azureBlobAuthModeSchema },
+            runtimeEnv: { AZURE_BLOB_AUTH_MODE: "apiKey" },
+            skipValidation: false,
+          }),
+        ).toThrow("Invalid environment variables");
+
+        const logged = errorSpy.mock.calls
+          .map((c: unknown[]) =>
+            c.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "),
+          )
+          .join("\n");
+        expect(logged).toMatch(/AZURE_BLOB_AUTH_MODE/);
+        expect(logged).toMatch(/sharedKey/);
+        expect(logged).toMatch(/workloadIdentity/);
+        expect(logged).toMatch(/managedIdentity/);
+        expect(logged).toMatch(/azureCli/);
       } finally {
         errorSpy.mockRestore();
       }
