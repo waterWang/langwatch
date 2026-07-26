@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/langwatch/langwatch/compare/typescript-sdk@v1.0.0...typescript-sdk@v1.0.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* **cli:** latest login wins over stale tool wiring ([#6204](https://github.com/langwatch/langwatch/issues/6204)) ([f7bb069](https://github.com/langwatch/langwatch/commit/f7bb069462a1c72950dcc49d9025cd2f689d1891))
+* **me:** rename Sessions to Devices, keep simulations date window on set switch ([#6136](https://github.com/langwatch/langwatch/issues/6136)) ([7a9917a](https://github.com/langwatch/langwatch/commit/7a9917a13d07bd31c33bd8c0ccd9a84678c7cd41))
+
 ## [1.0.0](https://github.com/langwatch/langwatch/compare/typescript-sdk@v0.37.0...typescript-sdk@v1.0.0) (2026-07-24)
 
 
