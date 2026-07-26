@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.7.1](https://github.com/langwatch/langwatch/compare/langwatch@v3.7.0...langwatch@v3.7.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* **gateway:** chat streams open with the role-carrying delta OpenAI sends ([#6214](https://github.com/langwatch/langwatch/issues/6214)) ([b7fc473](https://github.com/langwatch/langwatch/commit/b7fc47321058170af25c0286b3e2021fc32eea09))
+* **model-providers:** derive credential requiredness from the schema and keep the stored key through base-URL edits ([#6210](https://github.com/langwatch/langwatch/issues/6210)) ([165b629](https://github.com/langwatch/langwatch/commit/165b629482e5aceb35883cb5ac3ab0dabd011984))
+
 ## [3.7.0](https://github.com/langwatch/langwatch/compare/langwatch@v3.6.0...langwatch@v3.7.0) (2026-07-26)
 
 
