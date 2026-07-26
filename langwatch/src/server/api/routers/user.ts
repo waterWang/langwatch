@@ -22,6 +22,7 @@ import { GatewayBudgetService } from "~/server/gateway/budget.service";
 import { sendBudgetIncreaseRequestEmail } from "~/server/mailer/budgetIncreaseRequestEmail";
 import { resolveOrgAdminEmail } from "~/server/organizations/resolveOrgAdminEmail";
 import { resolveSupportContact } from "~/server/organizations/resolveSupportContact";
+import { trackServerEvent } from "~/server/posthog";
 import { rateLimit } from "~/server/rateLimit";
 import {
   AVATAR_MAX_DATA_URL_LENGTH,
@@ -156,6 +157,10 @@ export const userRouter = createTRPCRouter({
         });
         return created;
       });
+
+      // Email-mode signups bypass the BetterAuth user-create hooks, so the
+      // `signed_up` analytics event fires here instead.
+      trackServerEvent({ userId: newUser.id, event: "signed_up" });
 
       return { id: newUser.id };
     }),
