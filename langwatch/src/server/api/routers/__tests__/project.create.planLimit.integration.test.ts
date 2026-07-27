@@ -19,6 +19,7 @@ import {
   vi,
 } from "vitest";
 import { prisma } from "../../../db";
+import { cleanupTestRows, requireAssigned } from "~/test-utils/cleanupTestRows";
 import { appRouter } from "../../root";
 import { createInnerTRPCContext } from "../../trpc";
 import { createTestApp } from "~/server/app-layer/presets";
@@ -328,24 +329,24 @@ describe(
     });
 
     afterAll(async () => {
-      await prisma.project
-        .deleteMany({ where: { teamId } })
-        .catch(() => {});
-      await prisma.roleBinding
-        .deleteMany({ where: { organizationId, userId } })
-        .catch(() => {});
-      await prisma.team
-        .deleteMany({ where: { slug: `--test-team-rb-${testNamespace}` } })
-        .catch(() => {});
-      await prisma.organizationUser
-        .deleteMany({ where: { organizationId, userId } })
-        .catch(() => {});
-      await prisma.organization
-        .deleteMany({ where: { slug: `--test-org-rb-${testNamespace}` } })
-        .catch(() => {});
-      await prisma.user
-        .deleteMany({ where: { email: `rb-${testNamespace}@example.com` } })
-        .catch(() => {});
+      // ProjectSecret's tenancy guard demands literal project ids, so they
+      // are collected first, anchored so a broken setup cannot widen the
+      // findMany into every project in the database.
+      const projectIds = (
+        await prisma.project.findMany({
+          where: { teamId: requireAssigned(teamId, "teamId") },
+          select: { id: true },
+        })
+      ).map((project) => project.id);
+      await cleanupTestRows(prisma, [
+        ["projectSecret", { projectId: { in: projectIds } }],
+        ["project", { teamId }],
+        ["roleBinding", { organizationId, userId }],
+        ["team", { organizationId }],
+        ["organizationUser", { organizationId, userId }],
+        ["organization", { slug: `--test-org-rb-${testNamespace}` }],
+        ["user", { email: `rb-${testNamespace}@example.com` }],
+      ]);
     });
 
     it("creates the project without a TeamUser row", async () => {

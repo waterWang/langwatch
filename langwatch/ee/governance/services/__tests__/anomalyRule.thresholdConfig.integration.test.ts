@@ -34,6 +34,7 @@ import { FREE_PLAN } from "@ee/licensing/constants";
 import type { PlanInfo } from "@ee/licensing/planInfo";
 
 import { prisma } from "~/server/db";
+import { cleanupTestRows } from "~/test-utils/cleanupTestRows";
 import { globalForApp, resetApp } from "~/server/app-layer/app";
 import { createTestApp } from "~/server/app-layer/presets";
 import { PlanProviderService } from "~/server/app-layer/subscription/plan-provider";
@@ -91,15 +92,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.anomalyRule.deleteMany({ where: { organizationId } }).catch(() => {});
-  await prisma.roleBinding.deleteMany({ where: { organizationId } }).catch(() => {});
-  await prisma.teamUser
-    .deleteMany({ where: { team: { slug: { startsWith: `--tcfg-team-` } } } })
-    .catch(() => {});
-  await prisma.organizationUser.deleteMany({ where: { organizationId } }).catch(() => {});
-  await prisma.team.deleteMany({ where: { slug: { startsWith: `--tcfg-team-` } } }).catch(() => {});
-  await prisma.organization.deleteMany({ where: { slug: `--tcfg-${ns}` } }).catch(() => {});
-  await prisma.user.deleteMany({ where: { email: `tcfg-admin-${ns}@example.com` } }).catch(() => {});
+  await cleanupTestRows(prisma, [
+    ["anomalyRule", { organizationId }],
+    ["roleBinding", { organizationId }],
+    ["teamUser", { team: { organizationId } }],
+    ["organizationUser", { organizationId }],
+    ["team", { organizationId }],
+    ["organization", { slug: `--tcfg-${ns}` }],
+    ["user", { email: `tcfg-admin-${ns}@example.com` }],
+  ]);
 });
 
 function callerFor(userId: string) {

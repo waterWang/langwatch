@@ -7,6 +7,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { nanoid } from "nanoid";
 import { prisma } from "../../../db";
+import { cleanupTestRows } from "../../../../test-utils/cleanupTestRows";
 import { appRouter } from "../../root";
 import { createInnerTRPCContext } from "../../trpc";
 import { createTestApp } from "../../../app-layer/presets";
@@ -104,51 +105,26 @@ describe("onboarding.initializeOrganization integration", () => {
     });
 
     if (createdOrganizationIds.length > 0) {
-      const teams = await prisma.team.findMany({
-        where: {
-          organizationId: { in: createdOrganizationIds },
-        },
-        select: { id: true },
-      });
-      const teamIds = teams.map((team) => team.id);
-
-      if (teamIds.length > 0) {
-        await prisma.project.deleteMany({
-          where: {
-            teamId: { in: teamIds },
-          },
-        });
-        await prisma.teamUser.deleteMany({
-          where: {
-            teamId: { in: teamIds },
-          },
-        });
-      }
-
-      await prisma.organizationUser.deleteMany({
-        where: {
-          organizationId: { in: createdOrganizationIds },
-        },
-      });
-      await prisma.team.deleteMany({
-        where: {
-          organizationId: { in: createdOrganizationIds },
-        },
-      });
-      await prisma.organization.deleteMany({
-        where: {
-          id: { in: createdOrganizationIds },
-        },
-      });
+      await cleanupTestRows(prisma, [
+        [
+          "project",
+          { team: { organizationId: { in: createdOrganizationIds } } },
+        ],
+        [
+          "teamUser",
+          { team: { organizationId: { in: createdOrganizationIds } } },
+        ],
+        ["organizationUser", { organizationId: { in: createdOrganizationIds } }],
+        ["team", { organizationId: { in: createdOrganizationIds } }],
+        ["organization", { id: { in: createdOrganizationIds } }],
+      ]);
       createdOrganizationIds = [];
     }
   });
 
   afterAll(async () => {
     await resetApp();
-    await prisma.user.deleteMany({
-      where: { id: userId },
-    });
+    await cleanupTestRows(prisma, [["user", { id: userId }]]);
   });
 
   describe("when onboarding completes successfully", () => {

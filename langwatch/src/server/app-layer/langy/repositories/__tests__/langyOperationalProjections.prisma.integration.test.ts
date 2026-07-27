@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { LangyConversationNotFoundError } from "~/server/app-layer/langy/errors";
 import { LangyMessageService } from "~/server/app-layer/langy/langy-message.service";
 import { prisma } from "~/server/db";
+import { cleanupTestRows } from "~/test-utils/cleanupTestRows";
 import { createTenantId } from "~/server/event-sourcing/domain/tenantId";
 import type { Event } from "~/server/event-sourcing/domain/types";
 import { MapProjectionExecutor } from "~/server/event-sourcing/projections/mapProjectionExecutor";
@@ -148,9 +149,11 @@ async function projectConversationAndMessage(
 
 afterEach(async () => {
   const where = { projectId: { in: projectIds } };
-  await prisma.langyMessageProjection.deleteMany({ where });
-  await prisma.langyConversationTurnProjection.deleteMany({ where });
-  await prisma.langyConversationProjection.deleteMany({ where });
+  await cleanupTestRows(prisma, [
+    ["langyMessageProjection", where],
+    ["langyConversationTurnProjection", where],
+    ["langyConversationProjection", where],
+  ]);
 });
 
 describe("Langy operational projections with Postgres", () => {

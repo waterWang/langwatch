@@ -22,6 +22,7 @@ import { nanoid } from "nanoid";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "~/server/db";
+import { cleanupTestRows } from "~/test-utils/cleanupTestRows";
 import { globalForApp, resetApp } from "~/server/app-layer/app";
 import { createTestApp } from "~/server/app-layer/presets";
 import { OrganizationService } from "~/server/app-layer/organizations/organization.service";
@@ -107,12 +108,14 @@ describe("onboarding.initializeOrganization personal workspace", () => {
           where: { projectId: { in: projectIds } },
         });
       }
-      await prisma.project.deleteMany({ where: { team: { organizationId } } });
-      await prisma.roleBinding.deleteMany({ where: { organizationId } });
-      await prisma.teamUser.deleteMany({ where: { team: { organizationId } } });
-      await prisma.team.deleteMany({ where: { organizationId } });
-      await prisma.organizationUser.deleteMany({ where: { organizationId } });
-      await prisma.organization.deleteMany({ where: { id: organizationId } });
+      await cleanupTestRows(prisma, [
+        ["project", { team: { organizationId } }],
+        ["roleBinding", { organizationId }],
+        ["teamUser", { team: { organizationId } }],
+        ["team", { organizationId }],
+        ["organizationUser", { organizationId }],
+        ["organization", { id: organizationId }],
+      ]);
     }
     await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     await resetApp();

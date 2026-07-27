@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "~/server/db";
+import { cleanupTestRows } from "~/test-utils/cleanupTestRows";
 import { createTenantId } from "~/server/event-sourcing/domain/tenantId";
 import {
   OutboxDispatcherService,
@@ -94,9 +95,11 @@ function lifecycle() {
 
 afterEach(async () => {
   const where = { processName: LANGY_CONVERSATION_PROCESS_NAME, projectId };
-  await prisma.processManagerOutbox.deleteMany({ where });
-  await prisma.processManagerInbox.deleteMany({ where });
-  await prisma.processManagerInstance.deleteMany({ where });
+  await cleanupTestRows(prisma, [
+    ["processManagerOutbox", where],
+    ["processManagerInbox", where],
+    ["processManagerInstance", where],
+  ]);
 });
 
 function buildLangyManager(ports: LangyEffectPorts) {

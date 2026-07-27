@@ -34,6 +34,7 @@ import { FREE_PLAN } from "@ee/licensing/constants";
 import type { PlanInfo } from "@ee/licensing/planInfo";
 
 import { prisma } from "~/server/db";
+import { cleanupTestRows } from "~/test-utils/cleanupTestRows";
 import { IngestionSourceService } from "@ee/governance/services/activity-monitor/ingestionSource.service";
 import { NON_ENTERPRISE_INGESTION_SOURCE_CAP } from "@ee/governance/services/activity-monitor/ingestionSource.constants";
 import { globalForApp, resetApp } from "~/server/app-layer/app";
@@ -102,22 +103,22 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.roleBinding.deleteMany({ where: { organizationId } }).catch(() => {});
-  await prisma.teamUser
-    .deleteMany({ where: { team: { slug: { startsWith: `--lic-team-` } } } })
-    .catch(() => {});
-  await prisma.organizationUser.deleteMany({ where: { organizationId } }).catch(() => {});
-  await prisma.team.deleteMany({ where: { slug: { startsWith: `--lic-team-` } } }).catch(() => {});
-  await prisma.organization.deleteMany({ where: { slug: `--lic-${ns}` } }).catch(() => {});
-  await prisma.user
-    .deleteMany({
-      where: {
+  await cleanupTestRows(prisma, [
+    ["roleBinding", { organizationId }],
+    ["teamUser", { team: { organizationId } }],
+    ["organizationUser", { organizationId }],
+    ["project", { team: { organizationId } }],
+    ["team", { organizationId }],
+    ["organization", { slug: `--lic-${ns}` }],
+    [
+      "user",
+      {
         email: {
           in: [`lic-admin-${ns}@example.com`, `lic-member-${ns}@example.com`],
         },
       },
-    })
-    .catch(() => {});
+    ],
+  ]);
 });
 
 function configureApp(plan: PlanInfo) {
@@ -222,9 +223,12 @@ describe("license-gate on governance backend", () => {
 
         // Clean up so the enterprise-plan suite below starts from a known
         // count (it asserts list() returns an array — value isn't pinned).
-        await prisma.ingestionSource.deleteMany({
-          where: { organizationId, name: { startsWith: `free-tier-` } },
-        });
+        await cleanupTestRows(prisma, [
+          [
+            "ingestionSource",
+            { organizationId, name: { startsWith: `free-tier-` } },
+          ],
+        ]);
       });
 
       it("forbids governance.ocsfExport", async () => {

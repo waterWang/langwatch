@@ -20,6 +20,7 @@ import {
   vi,
 } from "vitest";
 import { prisma } from "../../../db";
+import { cleanupTestRows } from "~/test-utils/cleanupTestRows";
 import { appRouter } from "../../root";
 import { createInnerTRPCContext } from "../../trpc";
 import { createTestApp } from "~/server/app-layer/presets";
@@ -161,28 +162,12 @@ describe.skipIf(isTestcontainersOnly)(
 
     afterAll(async () => {
       // Clean up in reverse creation order
-      await prisma.teamUser
-        .deleteMany({
-          where: {
-            team: { slug: `--test-team-${testNamespace}` },
-          },
-        })
-        .catch(() => {});
-      await prisma.customRole
-        .deleteMany({
-          where: { organizationId },
-        })
-        .catch(() => {});
-      await prisma.team
-        .deleteMany({
-          where: { slug: `--test-team-${testNamespace}` },
-        })
-        .catch(() => {});
-      await prisma.organizationUser
-        .deleteMany({
-          where: { organizationId },
-        })
-        .catch(() => {});
+      await cleanupTestRows(prisma, [
+        ["teamUser", { team: { slug: `--test-team-${testNamespace}` } }],
+        ["customRole", { organizationId }],
+        ["team", { slug: `--test-team-${testNamespace}` }],
+        ["organizationUser", { organizationId }],
+      ]);
       await prisma.organization
         .delete({ where: { id: organizationId } })
         .catch(() => {});

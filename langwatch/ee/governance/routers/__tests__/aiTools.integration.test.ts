@@ -29,6 +29,7 @@ import { nanoid } from "nanoid";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "~/server/db";
+import { cleanupTestRows } from "~/test-utils/cleanupTestRows";
 import { appRouter } from "~/server/api/root";
 import { createInnerTRPCContext } from "~/server/api/trpc";
 import { globalForApp, resetApp } from "~/server/app-layer/app";
@@ -178,20 +179,17 @@ describe("aiToolsRouter integration", () => {
   });
 
   afterAll(async () => {
-    await prisma.aiToolEntry.deleteMany({ where: { organizationId } }).catch(() => {});
-    await prisma.roleBinding.deleteMany({ where: { organizationId } }).catch(() => {});
-    await prisma.teamUser
-      .deleteMany({ where: { team: { slug: { startsWith: `--ait-` } } } })
-      .catch(() => {});
-    await prisma.organizationUser.deleteMany({ where: { organizationId } }).catch(() => {});
-    await prisma.department.deleteMany({ where: { organizationId } }).catch(() => {});
-    await prisma.team
-      .deleteMany({ where: { slug: { startsWith: `--ait-` } } })
-      .catch(() => {});
-    await prisma.organization.deleteMany({ where: { slug: `--ait-${ns}` } }).catch(() => {});
-    await prisma.user
-      .deleteMany({
-        where: {
+    await cleanupTestRows(prisma, [
+      ["aiToolEntry", { organizationId }],
+      ["roleBinding", { organizationId }],
+      ["teamUser", { team: { organizationId } }],
+      ["organizationUser", { organizationId }],
+      ["department", { organizationId }],
+      ["team", { organizationId }],
+      ["organization", { slug: `--ait-${ns}` }],
+      [
+        "user",
+        {
           email: {
             in: [
               `ait-admin-${ns}@example.com`,
@@ -201,8 +199,8 @@ describe("aiToolsRouter integration", () => {
             ],
           },
         },
-      })
-      .catch(() => {});
+      ],
+    ]);
   });
 
   function callerFor(userId: string) {
@@ -419,21 +417,14 @@ describe("aiToolsRouter integration", () => {
     });
 
     afterAll(async () => {
-      await prisma.aiToolEntry
-        .deleteMany({ where: { organizationId: polOrgId } })
-        .catch(() => {});
-      await prisma.organizationUser
-        .deleteMany({ where: { organizationId: polOrgId } })
-        .catch(() => {});
-      await prisma.department
-        .deleteMany({ where: { organizationId: polOrgId } })
-        .catch(() => {});
-      await prisma.organization
-        .deleteMany({ where: { id: polOrgId } })
-        .catch(() => {});
-      await prisma.user
-        .deleteMany({
-          where: {
+      await cleanupTestRows(prisma, [
+        ["aiToolEntry", { organizationId: polOrgId }],
+        ["organizationUser", { organizationId: polOrgId }],
+        ["department", { organizationId: polOrgId }],
+        ["organization", { id: polOrgId }],
+        [
+          "user",
+          {
             email: {
               in: [
                 `aitp-in-${pol}@example.com`,
@@ -441,8 +432,8 @@ describe("aiToolsRouter integration", () => {
               ],
             },
           },
-        })
-        .catch(() => {});
+        ],
+      ]);
     });
 
     it("scopes a department tile's CLI path policy to members who can see it", async () => {

@@ -22,6 +22,7 @@ import { createTestApp } from "../../../app-layer/presets";
 import { PlanProviderService } from "../../../app-layer/subscription/plan-provider";
 import { UsageService } from "../../../app-layer/usage/usage.service";
 import { prisma } from "../../../db";
+import { cleanupTestRows } from "../../../../test-utils/cleanupTestRows";
 import { appRouter } from "../../root";
 import { createInnerTRPCContext } from "../../trpc";
 
@@ -117,15 +118,11 @@ describe("Limits Router Integration", () => {
 
   afterAll(async () => {
     await resetApp();
-    await prisma.organizationUser.deleteMany({
-      where: { organizationId },
-    });
-    await prisma.organization.deleteMany({
-      where: { slug: testOrgSlug },
-    });
-    await prisma.user.deleteMany({
-      where: { email: "limits-router-test@test.com" },
-    });
+    await cleanupTestRows(prisma, [
+      ["organizationUser", { organizationId }],
+      ["organization", { slug: testOrgSlug }],
+      ["user", { email: "limits-router-test@test.com" }],
+    ]);
   });
 
   describe("getUsage", () => {
