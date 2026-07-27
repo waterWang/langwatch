@@ -188,6 +188,7 @@ describe("AzureBlobDriver against a real Azurite emulator (path-style addressing
      */
     it("round-trips anyway, because the endpoint is normalised once", async () => {
       const driverWithSlash = new AzureBlobDriver({
+        mode: "sharedKey",
         accountName: azurite.accountName,
         accountKey: azurite.accountKey,
         endpointBaseUrl: `${azurite.endpointBaseUrl}/`,
